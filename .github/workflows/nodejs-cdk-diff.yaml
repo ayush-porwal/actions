@@ -17,7 +17,7 @@ on:
         type: string
         default: "eu-central-1"
       stack_name:
-        description: "Exact CDK stack name to diff (e.g. smaran-staging-eu-central-1)."
+        description: "Exact CDK stack name to diff (e.g. my-app-staging-eu-central-1)."
         required: true
         type: string
       stack_prefix:
@@ -53,7 +53,7 @@ jobs:
         with:
           role-to-assume: ${{ inputs.aws_role }}
           aws-region: ${{ inputs.aws_region }}
-          role-session-name: smaran-diff-${{ github.run_id }}
+          role-session-name: cdk-diff-${{ github.run_id }}
 
       - name: Checkout
         uses: actions/checkout@v7

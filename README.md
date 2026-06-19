@@ -101,8 +101,8 @@ approving a gated deploy.
 | ------------------- | -------- | ------------ | ----------------------------------------------------------------------------- |
 | `working-directory` | no       | `mobile`     | Dir holding the Expo app.                                                     |
 | `platform`          | no       | `android`    | `android` \| `ios`.                                                           |
-| `profile`           | no       | `production` | EAS build profile. Its `env` sets `SMARAN_ENV` → selects `config/{env}.json`. |
-| `config-artifact`   | no       | `""`         | Artifact with env config to drop into `config/` first.                        |
+| `profile`           | no       | `production` | EAS build profile (from eas.json); its `env` block carries per-env values.    |
+| `config-artifact`   | no       | `""`         | Optional artifact extracted into `<working-directory>/config/` first.         |
 | `node-version`      | no       | `24.x`       |                                                                               |
 
 | Secret       | Required | Notes                                         |

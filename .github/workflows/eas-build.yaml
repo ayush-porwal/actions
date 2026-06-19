@@ -2,14 +2,12 @@ name: eas-build
 
 # Reusable EAS build. Submits the build to EAS and exits immediately
 # (`--no-wait`) — the runner does NOT idle while EAS queues/builds. Grab
-# the finished APK from the EAS dashboard (expo.dev → Builds: install
-# link / QR / .apk download).
+# the finished binary from the EAS dashboard (expo.dev → Builds).
 #
-# The app reads `mobile/config/{SMARAN_ENV}.json` at build time
-# (mobile/app.config.ts). SMARAN_ENV comes from the eas.json build
-# profile's `env`; that gitignored config file is dropped in via
-# `config-artifact` before the build (the caller fetches it from the
-# deployed stack's outputs).
+# Per-environment values live in the chosen eas.json profile (its `env`).
+# If the app reads a gitignored config file, the caller can drop one in
+# before the build via `config-artifact` (it's extracted into
+# <working-directory>/config/).
 #
 # Setup: add an EXPO_TOKEN repo secret (expo.dev → access tokens).
 
@@ -32,12 +30,12 @@ on:
         type: string
         default: "android"
       profile:
-        description: "EAS build profile (from eas.json). The profile's env sets SMARAN_ENV, which selects mobile/config/{env}.json."
+        description: "EAS build profile (from eas.json); its `env` block carries per-environment values."
         required: false
         type: string
         default: "production"
       config-artifact:
-        description: "Artifact name holding the {env}.json to drop into the app's config/ dir before building."
+        description: "Optional artifact whose contents are extracted into <working-directory>/config/ before building."
         required: false
         type: string
         default: ""

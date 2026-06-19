@@ -1,7 +1,6 @@
 name: nodejs-cdk-ci
 
-# Reusable build/test/synth for a Node CDK package. Slated for
-# extraction into ayush-porwal/actions; called today via a local path.
+# Reusable build/test/synth for a Node CDK package.
 
 on:
   workflow_call:
