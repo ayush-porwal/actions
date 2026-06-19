@@ -1,0 +1,62 @@
+name: nodejs-cdk-ci
+
+# Reusable build/test/synth for a Node CDK package. Slated for
+# extraction into ayush-porwal/actions; called today via a local path.
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory holding the CDK package (package.json + cdk.json)."
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+      aws-region:
+        description: "Region passed to `cdk synth` (only used to satisfy the SDK; no creds needed)."
+        required: false
+        type: string
+        default: "eu-central-1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build, test, synth
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (tsc)
+        run: npm run build
+
+      - name: Test (jest)
+        run: npm test
+
+      # Stacks pin env.account/region, so synth never hits STS; the
+      # dummy creds just stop the SDK complaining about having none.
+      - name: CDK synth
+        run: npx cdk synth --quiet
+        env:
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+          AWS_REGION: ${{ inputs.aws-region }}

@@ -1,0 +1,93 @@
+name: nodejs-cdk-destroy
+
+# Reusable `cdk destroy` for one stack (ephemeral per-PR sandbox
+# teardown). Asserts the stack is actually gone afterwards — a leftover
+# means a resource blocked deletion.
+
+on:
+  workflow_call:
+    inputs:
+      aws_role:
+        description: "ARN of the OIDC role to assume."
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region."
+        required: false
+        type: string
+        default: "eu-central-1"
+      stack_name:
+        description: "Exact CDK stack name to destroy."
+        required: true
+        type: string
+      environment:
+        description: "GitHub environment for the destroy job (e.g. sandbox)."
+        required: true
+        type: string
+      stack_prefix:
+        description: "Value for CDK_STACK_PREFIX so the synthesized stack name matches the target (e.g. 'pr42-')."
+        required: false
+        type: string
+        default: ""
+      working-directory:
+        description: "Directory holding the CDK package."
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy:
+    name: cdk destroy ${{ inputs.stack_name }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ inputs.aws_role }}
+          aws-region: ${{ inputs.aws_region }}
+          role-session-name: smaran-destroy-${{ github.run_id }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Destroy
+        env:
+          CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
+          STACK_NAME: ${{ inputs.stack_name }}
+        # `--force` skips the confirm prompt. The OIDC trust chain is the
+        # real safety net: only this role can assume the target account's
+        # bootstrap roles.
+        run: npx cdk destroy "$STACK_NAME" --force
+
+      - name: Confirm stack is gone
+        env:
+          STACK_NAME: ${{ inputs.stack_name }}
+        run: |
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" >/dev/null 2>&1; then
+            echo "::error::Stack $STACK_NAME still exists after destroy"
+            exit 1
+          fi
+          echo "Stack $STACK_NAME successfully deleted"

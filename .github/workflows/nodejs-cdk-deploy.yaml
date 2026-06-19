@@ -1,0 +1,113 @@
+name: nodejs-cdk-deploy
+
+# Reusable `cdk deploy` for one stack. The job runs in `environment:`,
+# so GitHub's per-env required-reviewer gate is the approval checkpoint.
+# Optionally uploads cdk-outputs.json so a caller can build app-specific
+# config from the outputs — keeping this workflow generic.
+
+on:
+  workflow_call:
+    inputs:
+      aws_role:
+        description: "ARN of the OIDC role to assume. CDK chain-assumes the target account's bootstrap roles from here."
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region."
+        required: false
+        type: string
+        default: "eu-central-1"
+      stack_name:
+        description: "Exact CDK stack name to deploy."
+        required: true
+        type: string
+      environment:
+        description: "GitHub environment for the deploy job (the approval gate): sandbox | staging | production."
+        required: true
+        type: string
+      stack_prefix:
+        description: "Value for CDK_STACK_PREFIX (e.g. 'pr42-' for per-PR sandbox stacks). Empty for the shared envs."
+        required: false
+        type: string
+        default: ""
+      outputs-artifact:
+        description: "If set, upload cdk-outputs.json under this artifact name for downstream jobs."
+        required: false
+        type: string
+        default: ""
+      working-directory:
+        description: "Directory holding the CDK package."
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: cdk deploy ${{ inputs.stack_name }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ inputs.aws_role }}
+          aws-region: ${{ inputs.aws_region }}
+          role-session-name: smaran-deploy-${{ github.run_id }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Deploy
+        env:
+          CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
+          STACK_NAME: ${{ inputs.stack_name }}
+        run: |
+          npx cdk deploy "$STACK_NAME" \
+            --require-approval never \
+            --outputs-file cdk-outputs.json
+
+      - name: Expose outputs
+        if: success()
+        env:
+          STACK_NAME: ${{ inputs.stack_name }}
+        run: |
+          if [ -f cdk-outputs.json ]; then
+            {
+              echo "## Outputs — $STACK_NAME"
+              echo ''
+              echo '```json'
+              cat cdk-outputs.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload outputs artifact
+        if: success() && inputs.outputs-artifact != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.outputs-artifact }}
+          path: ${{ inputs.working-directory }}/cdk-outputs.json
+          if-no-files-found: error
+          retention-days: 7

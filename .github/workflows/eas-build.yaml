@@ -1,0 +1,112 @@
+name: eas-build
+
+# Reusable EAS build → signed APK uploaded as an artifact.
+#
+# The app reads `mobile/config/{SMARAN_ENV}.json` at build time
+# (mobile/app.config.ts). That file is gitignored and written by the
+# deploy chain, so it must be passed in via `config-artifact`.
+#
+# Setup: add an EXPO_TOKEN repo secret (expo.dev → access tokens).
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory holding the Expo app."
+        required: false
+        type: string
+        default: "mobile"
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+      platform:
+        description: "EAS platform: android | ios."
+        required: false
+        type: string
+        default: "android"
+      profile:
+        description: "EAS build profile (from eas.json)."
+        required: false
+        type: string
+        default: "production"
+      smaran_env:
+        description: "SMARAN_ENV baked into the build (selects mobile/config/{env}.json)."
+        required: false
+        type: string
+        default: "prod"
+      config-artifact:
+        description: "Artifact name holding the {env}.json to drop into the app's config/ dir before building."
+        required: false
+        type: string
+        default: ""
+      artifact-name:
+        description: "Name of the uploaded build artifact."
+        required: false
+        type: string
+        default: "smaran-android-apk"
+    secrets:
+      EXPO_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: EAS build (${{ inputs.platform }}/${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Download env config
+        if: inputs.config-artifact != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.config-artifact }}
+          path: ${{ inputs.working-directory }}/config
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build
+        env:
+          # Skip EAS's interactive VCS remote check.
+          EAS_NO_VCS: "1"
+        run: |
+          eas build \
+            --platform ${{ inputs.platform }} \
+            --profile ${{ inputs.profile }} \
+            --non-interactive \
+            --wait \
+            --env SMARAN_ENV=${{ inputs.smaran_env }}
+
+      - name: Download artifact from EAS
+        run: eas build:download --output ./smaran.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.working-directory }}/smaran.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 30

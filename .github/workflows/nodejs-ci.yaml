@@ -1,0 +1,60 @@
+name: nodejs-ci
+
+# Reusable typecheck/lint for a plain Node package (the Expo app).
+# Checks are toggled by input — the mobile package has no build/test.
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory holding the package.json."
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+      typecheck:
+        description: "Run `tsc --noEmit`."
+        required: false
+        type: boolean
+        default: true
+      lint:
+        description: "Run `npm run lint`."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck, lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        if: inputs.typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        if: inputs.lint
+        run: npm run lint

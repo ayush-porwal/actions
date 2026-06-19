@@ -1,0 +1,85 @@
+name: nodejs-cdk-diff
+
+# Reusable `cdk diff` for one stack, rendered into the job summary. No
+# `environment:` on purpose — the diff runs ungated so a reviewer reads
+# it BEFORE approving the gated deploy that follows.
+
+on:
+  workflow_call:
+    inputs:
+      aws_role:
+        description: "ARN of the OIDC role to assume. CDK chain-assumes the target account's bootstrap roles from here."
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region."
+        required: false
+        type: string
+        default: "eu-central-1"
+      stack_name:
+        description: "Exact CDK stack name to diff (e.g. smaran-staging-eu-central-1)."
+        required: true
+        type: string
+      stack_prefix:
+        description: "Value for CDK_STACK_PREFIX (e.g. 'pr42-' for per-PR sandbox stacks). Empty for the shared envs."
+        required: false
+        type: string
+        default: ""
+      working-directory:
+        description: "Directory holding the CDK package."
+        required: false
+        type: string
+        default: "."
+      node-version:
+        description: "Node.js version to use."
+        required: false
+        type: string
+        default: "24.x"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diff:
+    name: cdk diff ${{ inputs.stack_name }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ inputs.aws_role }}
+          aws-region: ${{ inputs.aws_region }}
+          role-session-name: smaran-diff-${{ github.run_id }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Diff
+        env:
+          CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
+          STACK_NAME: ${{ inputs.stack_name }}
+        run: |
+          npx cdk diff "$STACK_NAME" --no-color --progress=events 2>&1 | tee cdk.log
+
+          # Surface the plan inline, from the `Stack …` line onward.
+          {
+            echo "## CDK Diff $STACK_NAME"
+            echo ''
+            echo '```'
+            sed -n "/Stack ${STACK_NAME}\$/,\$p" cdk.log | sed '1d'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
