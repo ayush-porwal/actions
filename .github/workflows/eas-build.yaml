@@ -84,9 +84,17 @@ jobs:
       # EAS queue/build. Collect the APK from the EAS dashboard.
       - name: Build
         env:
-          # Build the working dir as-is (incl. the gitignored config file)
-          # instead of from a clean git archive.
+          # Build from the working dir as-is (incl. files the app needs that
+          # are .gitignore'd, e.g. a generated config) instead of a clean git
+          # archive.
           EAS_NO_VCS: "1"
+          # Root the upload at the app dir, not the git repo root. eas-cli
+          # otherwise resolves the project root via `git rev-parse
+          # --show-toplevel`, which in a monorepo uploads the whole repo and
+          # applies the repo-root ignore files. Pinning the root keeps the
+          # upload to the app and lets <working-directory>/.gitignore (or
+          # .easignore, if present) govern what ships.
+          EAS_PROJECT_ROOT: ${{ github.workspace }}/${{ inputs.working-directory }}
         run: |
           eas build \
             --platform ${{ inputs.platform }} \

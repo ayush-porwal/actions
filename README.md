@@ -97,13 +97,13 @@ approving a gated deploy.
 
 ### `eas-build.yaml`
 
-| Input               | Required | Default      | Notes                                                                         |
-| ------------------- | -------- | ------------ | ----------------------------------------------------------------------------- |
-| `working-directory` | no       | `mobile`     | Dir holding the Expo app.                                                     |
-| `platform`          | no       | `android`    | `android` \| `ios`.                                                           |
-| `profile`           | no       | `production` | EAS build profile (from eas.json); its `env` block carries per-env values.    |
-| `config-artifact`   | no       | `""`         | Optional artifact extracted into `<working-directory>/config/` first.         |
-| `node-version`      | no       | `24.x`       |                                                                               |
+| Input               | Required | Default      | Notes                                                                      |
+| ------------------- | -------- | ------------ | -------------------------------------------------------------------------- |
+| `working-directory` | no       | `mobile`     | Dir holding the Expo app.                                                  |
+| `platform`          | no       | `android`    | `android` \| `ios`.                                                        |
+| `profile`           | no       | `production` | EAS build profile (from eas.json); its `env` block carries per-env values. |
+| `config-artifact`   | no       | `""`         | Optional artifact extracted into `<working-directory>/config/` first.      |
+| `node-version`      | no       | `24.x`       |                                                                            |
 
 | Secret       | Required | Notes                                         |
 | ------------ | -------- | --------------------------------------------- |
