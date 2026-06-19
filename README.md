@@ -1,6 +1,6 @@
 # actions
 
-These are reusable **GitHub Actions** workflows, called at the *job* level from a consuming repo.
+These are reusable **GitHub Actions** workflows, called at the _job_ level from a consuming repo.
 
 ## Usage
 
@@ -28,85 +28,83 @@ Notes:
 
 ## Workflows
 
-| Workflow | Purpose |
-| --- | --- |
-| `nodejs-cdk-ci.yaml` | Install → build → test → `cdk synth` for a Node CDK package. |
-| `nodejs-ci.yaml` | Typecheck + lint for a plain Node package (no CDK). |
-| `nodejs-cdk-diff.yaml` | `cdk diff` one stack, rendered into the job summary. Ungated. |
-| `nodejs-cdk-deploy.yaml` | `cdk deploy` one stack, gated by a GitHub `environment`. |
-| `nodejs-cdk-destroy.yaml` | `cdk destroy` one stack, then assert it's gone. |
-| `eas-build.yaml` | Expo EAS build → app binary uploaded as an artifact. |
+| Workflow                  | Purpose                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `nodejs-cdk-ci.yaml`      | Install → build → test → `cdk synth` for a Node CDK package.                    |
+| `nodejs-ci.yaml`          | Typecheck + lint for a plain Node package (no CDK).                             |
+| `nodejs-cdk-diff.yaml`    | `cdk diff` one stack, rendered into the job summary. Ungated.                   |
+| `nodejs-cdk-deploy.yaml`  | `cdk deploy` one stack, gated by a GitHub `environment`.                        |
+| `nodejs-cdk-destroy.yaml` | `cdk destroy` one stack, then assert it's gone.                                 |
+| `eas-build.yaml`          | Submit an Expo EAS build (`--no-wait`); collect the APK from the EAS dashboard. |
 
 ### `nodejs-cdk-ci.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `working-directory` | no | `.` | Dir holding `package.json` + `cdk.json`. |
-| `node-version` | no | `24.x` | |
-| `aws-region` | no | `eu-central-1` | Region for `cdk synth` (no creds needed). |
+| Input               | Required | Default        | Notes                                     |
+| ------------------- | -------- | -------------- | ----------------------------------------- |
+| `working-directory` | no       | `.`            | Dir holding `package.json` + `cdk.json`.  |
+| `node-version`      | no       | `24.x`         |                                           |
+| `aws-region`        | no       | `eu-central-1` | Region for `cdk synth` (no creds needed). |
 
 Runs `npm ci` → `npm run build` → `npm test` → `cdk synth`.
 
 ### `nodejs-ci.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `working-directory` | no | `.` | |
-| `node-version` | no | `24.x` | |
-| `typecheck` | no | `true` | Runs `tsc --noEmit`. |
-| `lint` | no | `true` | Runs `npm run lint`. |
+| Input               | Required | Default | Notes                |
+| ------------------- | -------- | ------- | -------------------- |
+| `working-directory` | no       | `.`     |                      |
+| `node-version`      | no       | `24.x`  |                      |
+| `typecheck`         | no       | `true`  | Runs `tsc --noEmit`. |
+| `lint`              | no       | `true`  | Runs `npm run lint`. |
 
 ### `nodejs-cdk-diff.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `aws_role` | **yes** | — | OIDC role ARN to assume. CDK chain-assumes the target account's bootstrap roles from here. |
-| `stack_name` | **yes** | — | Exact CDK stack name. |
-| `aws_region` | no | `eu-central-1` | |
-| `stack_prefix` | no | `""` | Value for `CDK_STACK_PREFIX` (e.g. `pr42-`). |
-| `working-directory` | no | `.` | |
-| `node-version` | no | `24.x` | |
+| Input               | Required | Default        | Notes                                                                                      |
+| ------------------- | -------- | -------------- | ------------------------------------------------------------------------------------------ |
+| `aws_role`          | **yes**  | —              | OIDC role ARN to assume. CDK chain-assumes the target account's bootstrap roles from here. |
+| `stack_name`        | **yes**  | —              | Exact CDK stack name.                                                                      |
+| `aws_region`        | no       | `eu-central-1` |                                                                                            |
+| `stack_prefix`      | no       | `""`           | Value for `CDK_STACK_PREFIX` (e.g. `pr42-`).                                               |
+| `working-directory` | no       | `.`            |                                                                                            |
+| `node-version`      | no       | `24.x`         |                                                                                            |
 
 No `environment:` — runs ungated so a reviewer reads the diff before
 approving a gated deploy.
 
 ### `nodejs-cdk-deploy.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `aws_role` | **yes** | — | OIDC role ARN to assume. |
-| `stack_name` | **yes** | — | Exact CDK stack name. |
-| `environment` | **yes** | — | GitHub environment = the approval gate. |
-| `aws_region` | no | `eu-central-1` | |
-| `stack_prefix` | no | `""` | Value for `CDK_STACK_PREFIX`. |
-| `outputs-artifact` | no | `""` | If set, upload `cdk-outputs.json` under this name. |
-| `working-directory` | no | `.` | |
-| `node-version` | no | `24.x` | |
+| Input               | Required | Default        | Notes                                              |
+| ------------------- | -------- | -------------- | -------------------------------------------------- |
+| `aws_role`          | **yes**  | —              | OIDC role ARN to assume.                           |
+| `stack_name`        | **yes**  | —              | Exact CDK stack name.                              |
+| `environment`       | **yes**  | —              | GitHub environment = the approval gate.            |
+| `aws_region`        | no       | `eu-central-1` |                                                    |
+| `stack_prefix`      | no       | `""`           | Value for `CDK_STACK_PREFIX`.                      |
+| `outputs-artifact`  | no       | `""`           | If set, upload `cdk-outputs.json` under this name. |
+| `working-directory` | no       | `.`            |                                                    |
+| `node-version`      | no       | `24.x`         |                                                    |
 
 ### `nodejs-cdk-destroy.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `aws_role` | **yes** | — | OIDC role ARN to assume. |
-| `stack_name` | **yes** | — | Exact CDK stack name. |
-| `environment` | **yes** | — | GitHub environment for the destroy job. |
-| `aws_region` | no | `eu-central-1` | |
-| `stack_prefix` | no | `""` | Match the target's `CDK_STACK_PREFIX`. |
-| `working-directory` | no | `.` | |
-| `node-version` | no | `24.x` | |
+| Input               | Required | Default        | Notes                                   |
+| ------------------- | -------- | -------------- | --------------------------------------- |
+| `aws_role`          | **yes**  | —              | OIDC role ARN to assume.                |
+| `stack_name`        | **yes**  | —              | Exact CDK stack name.                   |
+| `environment`       | **yes**  | —              | GitHub environment for the destroy job. |
+| `aws_region`        | no       | `eu-central-1` |                                         |
+| `stack_prefix`      | no       | `""`           | Match the target's `CDK_STACK_PREFIX`.  |
+| `working-directory` | no       | `.`            |                                         |
+| `node-version`      | no       | `24.x`         |                                         |
 
 ### `eas-build.yaml`
 
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `working-directory` | no | `mobile` | Dir holding the Expo app. |
-| `platform` | no | `android` | `android` \| `ios`. |
-| `profile` | no | `production` | EAS build profile. |
-| `smaran_env` | no | `prod` | Value baked into the build. |
-| `config-artifact` | no | `""` | Artifact with env config to drop into `config/` first. |
-| `artifact-name` | no | `smaran-android-apk` | Name of the uploaded build. |
-| `node-version` | no | `24.x` | |
+| Input               | Required | Default      | Notes                                                                         |
+| ------------------- | -------- | ------------ | ----------------------------------------------------------------------------- |
+| `working-directory` | no       | `mobile`     | Dir holding the Expo app.                                                     |
+| `platform`          | no       | `android`    | `android` \| `ios`.                                                           |
+| `profile`           | no       | `production` | EAS build profile. Its `env` sets `SMARAN_ENV` → selects `config/{env}.json`. |
+| `config-artifact`   | no       | `""`         | Artifact with env config to drop into `config/` first.                        |
+| `node-version`      | no       | `24.x`       |                                                                               |
 
-| Secret | Required | Notes |
-| --- | --- | --- |
-| `EXPO_TOKEN` | **yes** | Expo access token (expo.dev → access tokens). |
+| Secret       | Required | Notes                                         |
+| ------------ | -------- | --------------------------------------------- |
+| `EXPO_TOKEN` | **yes**  | Expo access token (expo.dev → access tokens). |

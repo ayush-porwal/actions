@@ -1,10 +1,15 @@
 name: eas-build
 
-# Reusable EAS build → signed APK uploaded as an artifact.
+# Reusable EAS build. Submits the build to EAS and exits immediately
+# (`--no-wait`) — the runner does NOT idle while EAS queues/builds. Grab
+# the finished APK from the EAS dashboard (expo.dev → Builds: install
+# link / QR / .apk download).
 #
 # The app reads `mobile/config/{SMARAN_ENV}.json` at build time
-# (mobile/app.config.ts). That file is gitignored and written by the
-# deploy chain, so it must be passed in via `config-artifact`.
+# (mobile/app.config.ts). SMARAN_ENV comes from the eas.json build
+# profile's `env`; that gitignored config file is dropped in via
+# `config-artifact` before the build (the caller fetches it from the
+# deployed stack's outputs).
 #
 # Setup: add an EXPO_TOKEN repo secret (expo.dev → access tokens).
 
@@ -27,25 +32,15 @@ on:
         type: string
         default: "android"
       profile:
-        description: "EAS build profile (from eas.json)."
+        description: "EAS build profile (from eas.json). The profile's env sets SMARAN_ENV, which selects mobile/config/{env}.json."
         required: false
         type: string
         default: "production"
-      smaran_env:
-        description: "SMARAN_ENV baked into the build (selects mobile/config/{env}.json)."
-        required: false
-        type: string
-        default: "prod"
       config-artifact:
         description: "Artifact name holding the {env}.json to drop into the app's config/ dir before building."
         required: false
         type: string
         default: ""
-      artifact-name:
-        description: "Name of the uploaded build artifact."
-        required: false
-        type: string
-        default: "smaran-android-apk"
     secrets:
       EXPO_TOKEN:
         required: true
@@ -87,26 +82,16 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # Submit and exit (`--no-wait`): the runner doesn't idle through the
+      # EAS queue/build. Collect the APK from the EAS dashboard.
       - name: Build
         env:
-          # Skip EAS's interactive VCS remote check.
+          # Build the working dir as-is (incl. the gitignored config file)
+          # instead of from a clean git archive.
           EAS_NO_VCS: "1"
         run: |
           eas build \
             --platform ${{ inputs.platform }} \
             --profile ${{ inputs.profile }} \
             --non-interactive \
-            --wait \
-            --env SMARAN_ENV=${{ inputs.smaran_env }}
-
-      - name: Download artifact from EAS
-        run: eas build:download --output ./smaran.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.artifact-name }}
-          path: ${{ inputs.working-directory }}/smaran.apk
-          archive: false
-          if-no-files-found: error
-          retention-days: 30
+            --no-wait
