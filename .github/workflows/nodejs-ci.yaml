@@ -33,7 +33,7 @@ on:
         type: string
         default: "24.x"
       typecheck:
-        description: "Run `npm run typecheck` (via workspace flag when npm-workspace is set)."
+        description: "Run typecheck via workspace, `npm run typecheck`, or `npx tsc --noEmit` fallback when npm-workspace is empty."
         required: false
         type: boolean
         default: true
@@ -66,7 +66,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || (inputs.install-directory != '' && inputs.install-directory || inputs.working-directory) }}/package-lock.json
 
       - name: Install
         working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
@@ -84,7 +84,8 @@ jobs:
           if [ -n "$NPM_WORKSPACE" ]; then
             npm run typecheck --workspace="$NPM_WORKSPACE"
           else
-            npm run typecheck
+            cd "${{ inputs.working-directory }}"
+            npm run typecheck 2>/dev/null || npx tsc --noEmit
           fi
 
       - name: Lint

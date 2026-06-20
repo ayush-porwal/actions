@@ -67,7 +67,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || (inputs.install-directory != '' && inputs.install-directory || inputs.working-directory) }}/package-lock.json
 
       - name: Install
         # Empty install-directory falls back to working-directory (see input descriptions).

@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || (inputs.install-directory != '' && inputs.install-directory || inputs.working-directory) }}/package-lock.json
 
       - name: Install
         working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
@@ -91,7 +91,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: ${{ inputs.config-artifact }}
-          path: ${{ inputs.config-directory != '' && inputs.config-directory || concat(inputs.working-directory, '/config') }}
+          path: ${{ inputs.config-directory != '' && inputs.config-directory || inputs.working-directory }}/config
 
       - name: Setup EAS
         uses: expo/expo-github-action@v9
@@ -102,11 +102,14 @@ jobs:
       - name: Build
         working-directory: ${{ inputs.working-directory }}
         env:
-          # Ship the working tree (incl. gitignored config), not a clean git archive.
           EAS_NO_VCS: "1"
-          # Monorepos: pin upload root so eas-cli doesn't walk up to the repo top and ignore mobile/.easignore.
-          EAS_PROJECT_ROOT: ${{ inputs.eas-project-root != '' && inputs.eas-project-root || concat(github.workspace, '/', inputs.working-directory) }}
         run: |
+          # Ship the working tree (incl. gitignored config), not a clean git archive.
+          if [ -n "${{ inputs.eas-project-root }}" ]; then
+            export EAS_PROJECT_ROOT="${{ inputs.eas-project-root }}"
+          else
+            export EAS_PROJECT_ROOT="${{ github.workspace }}/${{ inputs.working-directory }}"
+          fi
           # --no-wait: submit and exit; collect the binary from expo.dev when the queue finishes.
           eas build \
             --platform ${{ inputs.platform }} \

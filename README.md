@@ -117,7 +117,7 @@ Same inputs as diff + deploy combined. Runs diff → job summary → deploy in *
 
 | Input               | Required | Default    | Notes                                                       |
 | ------------------- | -------- | ---------- | ----------------------------------------------------------- |
-| `eas-project-root`  | no       | `""`       | EAS upload root. Empty → `<workspace>/<working-directory>`. Set to monorepo root when needed. |
+| `eas-project-root`  | no       | `""`       | EAS upload root. Empty → `<repo>/<working-directory>`. For monorepos, set to `install-directory` (usually `.`). |
 | `config-directory`  | no       | `""`       | Where `config-artifact` is extracted. Empty → `<working-directory>/config`. |
 | `platform`          | no       | `android`  | `android` \| `ios`.                                         |
 | `profile`           | no       | `production` | EAS build profile.                                        |
