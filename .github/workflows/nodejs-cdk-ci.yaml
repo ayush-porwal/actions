@@ -14,17 +14,17 @@ on:
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty (standalone package)."
+        description: "Where to run npm ci. Leave empty to use working-directory (typical standalone package)."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
       npm-workspace:
-        description: "Optional npm workspace name. When set, scripts run as `npm run <script> --workspace=<name>` from the install directory."
+        description: "Monorepo workspace name — scripts run as `npm run <script> --workspace=<name>` from the install root."
         required: false
         type: string
         default: ""
@@ -44,7 +44,7 @@ on:
         type: boolean
         default: false
       format-check:
-        description: "Run `npm run format:check` before build (typically from the monorepo root)."
+        description: "Run `npm run format:check` from the install root (usually the monorepo root, not the CDK subdir)."
         required: false
         type: boolean
         default: false
@@ -70,6 +70,7 @@ jobs:
           cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
 
       - name: Install
+        # Empty install-directory falls back to working-directory (see input descriptions).
         working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
         run: npm ci
 
@@ -109,6 +110,7 @@ jobs:
       # Stacks pin env.account/region, so synth never hits STS; the
       # dummy creds just stop the SDK complaining about having none.
       - name: CDK synth
+        # Synth runs in the CDK package dir; install may have happened at the monorepo root.
         working-directory: ${{ inputs.working-directory }}
         run: npx cdk synth --quiet
         env:

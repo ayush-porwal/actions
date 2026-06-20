@@ -8,17 +8,17 @@ on:
   workflow_call:
     inputs:
       working-directory:
-        description: "Directory holding the package when not using npm workspaces."
+        description: "Package directory when not using npm workspaces (ignored for script commands if npm-workspace is set)."
         required: false
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
@@ -33,7 +33,7 @@ on:
         type: string
         default: "24.x"
       typecheck:
-        description: "Run typecheck (`npm run typecheck` or `tsc --noEmit`)."
+        description: "Run `npm run typecheck` (via workspace flag when npm-workspace is set)."
         required: false
         type: boolean
         default: true

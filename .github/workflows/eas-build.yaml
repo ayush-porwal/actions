@@ -21,22 +21,22 @@ on:
         type: string
         default: "mobile"
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
       eas-project-root:
-        description: "EAS upload root. Defaults to `<github.workspace>/<working-directory>`. Set to the monorepo root when workspace deps must resolve from the root lockfile."
+        description: "What EAS uploads. Default is `<repo>/<working-directory>`; set to the monorepo root when deps come from the root lockfile."
         required: false
         type: string
         default: ""
       config-directory:
-        description: "Directory where `config-artifact` contents are extracted (relative to repo root)."
+        description: "Where to extract config-artifact before build (repo-relative path)."
         required: false
         type: string
         default: ""
@@ -99,14 +99,15 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # Submit and exit (`--no-wait`): the runner doesn't idle through the
-      # EAS queue/build. Collect the APK from the EAS dashboard.
       - name: Build
         working-directory: ${{ inputs.working-directory }}
         env:
+          # Ship the working tree (incl. gitignored config), not a clean git archive.
           EAS_NO_VCS: "1"
+          # Monorepos: pin upload root so eas-cli doesn't walk up to the repo top and ignore mobile/.easignore.
           EAS_PROJECT_ROOT: ${{ inputs.eas-project-root != '' && inputs.eas-project-root || concat(github.workspace, '/', inputs.working-directory) }}
         run: |
+          # --no-wait: submit and exit; collect the binary from expo.dev when the queue finishes.
           eas build \
             --platform ${{ inputs.platform }} \
             --profile ${{ inputs.profile }} \

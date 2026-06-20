@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       stack_prefix:
-        description: "Value for CDK_STACK_PREFIX (e.g. 'pr42-' for per-PR sandbox stacks). Empty for the shared envs."
+        description: "CDK_STACK_PREFIX for per-PR sandboxes (e.g. `pr42-`). Include the trailing dash."
         required: false
         type: string
         default: ""
@@ -34,12 +34,12 @@ on:
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
@@ -87,7 +87,7 @@ jobs:
         run: |
           npx cdk diff "$STACK_NAME" --no-color --progress=events 2>&1 | tee cdk.log
 
-          # Surface the plan inline, from the `Stack …` line onward.
+          # Surface the plan inline, from the `Stack …` line onward (drops cdk-cli preamble).
           {
             echo "## CDK Diff $STACK_NAME"
             echo ''

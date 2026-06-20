@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       stack_prefix:
-        description: "Value for CDK_STACK_PREFIX so the synthesized stack name matches the target (e.g. 'pr42-')."
+        description: "CDK_STACK_PREFIX so synth matches the deployed stack (e.g. `pr42-` for sandboxes)."
         required: false
         type: string
         default: ""
@@ -37,12 +37,12 @@ on:
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
@@ -94,6 +94,7 @@ jobs:
         run: npx cdk destroy "$STACK_NAME" --force
 
       - name: Confirm stack is gone
+        # describe-stacks still finding the name means destroy didn't finish (or was blocked).
         env:
           STACK_NAME: ${{ inputs.stack_name }}
         run: |

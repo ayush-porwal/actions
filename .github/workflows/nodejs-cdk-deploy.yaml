@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       environment:
-        description: "GitHub environment for the deploy job (the approval gate): sandbox | staging | production."
+        description: "GitHub environment — required reviewers on this env are the deploy approval gate."
         required: true
         type: string
       stack_prefix:
@@ -33,7 +33,7 @@ on:
         type: string
         default: ""
       outputs-artifact:
-        description: "If set, upload cdk-outputs.json under this artifact name for downstream jobs."
+        description: "If set, upload cdk-outputs.json for a downstream job (e.g. a caller that writes app config)."
         required: false
         type: string
         default: ""
@@ -43,12 +43,12 @@ on:
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""

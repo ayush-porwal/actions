@@ -11,7 +11,7 @@ on:
   workflow_call:
     inputs:
       aws_role:
-        description: "ARN of the OIDC role to assume."
+        description: "OIDC role in the infra/trust account. CDK chain-assumes bootstrap roles in the target account."
         required: true
         type: string
       aws_region:
@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       environment:
-        description: "GitHub environment for the deploy step (e.g. sandbox)."
+        description: "GitHub environment on the job — use for sandbox even when diff and deploy aren't separately gated."
         required: true
         type: string
       stack_prefix:
@@ -43,12 +43,12 @@ on:
         type: string
         default: "."
       install-directory:
-        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        description: "Where to run npm ci. Leave empty to use working-directory."
         required: false
         type: string
         default: ""
       lockfile-path:
-        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
         required: false
         type: string
         default: ""
@@ -97,6 +97,7 @@ jobs:
         run: |
           npx cdk diff "$STACK_NAME" --no-color --progress=events 2>&1 | tee cdk.log
 
+          # Same summary trim as nodejs-cdk-diff — drop boilerplate above the stack header.
           {
             echo "## CDK Diff $STACK_NAME"
             echo ''
@@ -106,6 +107,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy
+        # Same job as diff — intentional for ungated envs (one install, no waiting between plan and apply).
         working-directory: ${{ inputs.working-directory }}
         env:
           CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
