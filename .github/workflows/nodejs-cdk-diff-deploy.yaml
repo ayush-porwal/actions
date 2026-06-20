@@ -1,9 +1,9 @@
-name: nodejs-cdk-deploy
+name: nodejs-cdk-diff-deploy
 
-# Reusable `cdk deploy` for one stack. The job runs in `environment:`,
-# so GitHub's per-env required-reviewer gate is the approval checkpoint.
-# Optionally uploads cdk-outputs.json so a caller can build app-specific
-# config from the outputs — keeping this workflow generic.
+# Reusable `cdk diff` → job summary → `cdk deploy` in a single job (one
+# checkout + install). For environments without an approval gate between
+# plan and apply (e.g. per-PR sandboxes). Staging/prod should keep
+# separate diff/deploy workflows so reviewers read the plan first.
 #
 # Install paths are caller-provided for standalone apps and monorepos.
 
@@ -11,7 +11,7 @@ on:
   workflow_call:
     inputs:
       aws_role:
-        description: "ARN of the OIDC role to assume. CDK chain-assumes the target account's bootstrap roles from here."
+        description: "ARN of the OIDC role to assume."
         required: true
         type: string
       aws_region:
@@ -20,20 +20,20 @@ on:
         type: string
         default: "eu-central-1"
       stack_name:
-        description: "Exact CDK stack name to deploy."
+        description: "Exact CDK stack name."
         required: true
         type: string
       environment:
-        description: "GitHub environment for the deploy job (the approval gate): sandbox | staging | production."
+        description: "GitHub environment for the deploy step (e.g. sandbox)."
         required: true
         type: string
       stack_prefix:
-        description: "Value for CDK_STACK_PREFIX (e.g. 'pr42-' for per-PR sandbox stacks). Empty for the shared envs."
+        description: "Value for CDK_STACK_PREFIX (e.g. 'pr42-')."
         required: false
         type: string
         default: ""
       outputs-artifact:
-        description: "If set, upload cdk-outputs.json under this artifact name for downstream jobs."
+        description: "If set, upload cdk-outputs.json under this artifact name."
         required: false
         type: string
         default: ""
@@ -63,8 +63,8 @@ permissions:
   id-token: write
 
 jobs:
-  deploy:
-    name: cdk deploy ${{ inputs.stack_name }}
+  diff_deploy:
+    name: cdk diff + deploy ${{ inputs.stack_name }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -73,7 +73,7 @@ jobs:
         with:
           role-to-assume: ${{ inputs.aws_role }}
           aws-region: ${{ inputs.aws_region }}
-          role-session-name: cdk-deploy-${{ github.run_id }}
+          role-session-name: cdk-diff-deploy-${{ github.run_id }}
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -88,6 +88,22 @@ jobs:
       - name: Install
         working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
         run: npm ci
+
+      - name: Diff
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
+          STACK_NAME: ${{ inputs.stack_name }}
+        run: |
+          npx cdk diff "$STACK_NAME" --no-color --progress=events 2>&1 | tee cdk.log
+
+          {
+            echo "## CDK Diff $STACK_NAME"
+            echo ''
+            echo '```'
+            sed -n "/Stack ${STACK_NAME}\$/,\$p" cdk.log | sed '1d'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy
         working-directory: ${{ inputs.working-directory }}

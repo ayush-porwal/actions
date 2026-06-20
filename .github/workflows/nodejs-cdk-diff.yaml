@@ -3,6 +3,9 @@ name: nodejs-cdk-diff
 # Reusable `cdk diff` for one stack, rendered into the job summary. No
 # `environment:` on purpose — the diff runs ungated so a reviewer reads
 # it BEFORE approving the gated deploy that follows.
+#
+# Install paths are caller-provided so this works for standalone CDK apps
+# and npm-workspace monorepos alike.
 
 on:
   workflow_call:
@@ -26,10 +29,20 @@ on:
         type: string
         default: ""
       working-directory:
-        description: "Directory holding the CDK package."
+        description: "Directory for CDK commands."
         required: false
         type: string
         default: "."
+      install-directory:
+        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty."
+        required: false
+        type: string
+        default: ""
+      lockfile-path:
+        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        required: false
+        type: string
+        default: ""
       node-version:
         description: "Node.js version to use."
         required: false
@@ -44,9 +57,6 @@ jobs:
   diff:
     name: cdk diff ${{ inputs.stack_name }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -63,12 +73,14 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
 
       - name: Install
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
         run: npm ci
 
       - name: Diff
+        working-directory: ${{ inputs.working-directory }}
         env:
           CDK_STACK_PREFIX: ${{ inputs.stack_prefix }}
           STACK_NAME: ${{ inputs.stack_name }}

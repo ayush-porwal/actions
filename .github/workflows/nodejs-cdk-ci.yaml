@@ -1,15 +1,33 @@
 name: nodejs-cdk-ci
 
-# Reusable build/test/synth for a Node CDK package.
+# Reusable build/test/synth for a Node CDK package. Supports standalone
+# packages and npm-workspace monorepos — callers pass install paths,
+# lockfile location, and optional workspace name; nothing is hardcoded
+# to a particular repo layout.
 
 on:
   workflow_call:
     inputs:
       working-directory:
-        description: "Directory holding the CDK package (package.json + cdk.json)."
+        description: "Directory for CDK commands (package.json + cdk.json)."
         required: false
         type: string
         default: "."
+      install-directory:
+        description: "Directory to run `npm ci` in. Defaults to `working-directory` when empty (standalone package)."
+        required: false
+        type: string
+        default: ""
+      lockfile-path:
+        description: "Lockfile path for npm cache. Defaults to `<install-directory>/package-lock.json` when empty."
+        required: false
+        type: string
+        default: ""
+      npm-workspace:
+        description: "Optional npm workspace name. When set, scripts run as `npm run <script> --workspace=<name>` from the install directory."
+        required: false
+        type: string
+        default: ""
       node-version:
         description: "Node.js version to use."
         required: false
@@ -20,6 +38,16 @@ on:
         required: false
         type: string
         default: "eu-central-1"
+      lint:
+        description: "Run `npm run lint` before build."
+        required: false
+        type: boolean
+        default: false
+      format-check:
+        description: "Run `npm run format:check` before build (typically from the monorepo root)."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,9 +56,8 @@ jobs:
   build:
     name: build, test, synth
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
+    env:
+      NPM_WORKSPACE: ${{ inputs.npm-workspace }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -40,20 +67,49 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || concat(inputs.install-directory != '' && inputs.install-directory || inputs.working-directory, '/package-lock.json') }}
 
       - name: Install
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
         run: npm ci
 
+      - name: Format check
+        if: inputs.format-check
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: npm run format:check
+
+      - name: Lint
+        if: inputs.lint
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: |
+          if [ -n "$NPM_WORKSPACE" ]; then
+            npm run lint --workspace="$NPM_WORKSPACE"
+          else
+            npm run lint
+          fi
+
       - name: Build (tsc)
-        run: npm run build
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: |
+          if [ -n "$NPM_WORKSPACE" ]; then
+            npm run build --workspace="$NPM_WORKSPACE"
+          else
+            npm run build
+          fi
 
       - name: Test (jest)
-        run: npm test
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: |
+          if [ -n "$NPM_WORKSPACE" ]; then
+            npm test --workspace="$NPM_WORKSPACE"
+          else
+            npm test
+          fi
 
       # Stacks pin env.account/region, so synth never hits STS; the
       # dummy creds just stop the SDK complaining about having none.
       - name: CDK synth
+        working-directory: ${{ inputs.working-directory }}
         run: npx cdk synth --quiet
         env:
           AWS_ACCESS_KEY_ID: dummy
