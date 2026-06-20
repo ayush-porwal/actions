@@ -1,23 +1,39 @@
 name: nodejs-ci
 
-# Reusable typecheck/lint for a plain Node package (the Expo app).
-# Checks are toggled by input — the mobile package has no build/test.
+# Reusable typecheck/lint for a plain Node package (e.g. an Expo app).
+# Checks are toggled by input. Install paths and an optional npm
+# workspace name are caller-provided — nothing assumes a fixed layout.
 
 on:
   workflow_call:
     inputs:
       working-directory:
-        description: "Directory holding the package.json."
+        description: "Package directory when not using npm workspaces (ignored for script commands if npm-workspace is set)."
         required: false
         type: string
         default: "."
+      install-directory:
+        description: "Where to run npm ci. Leave empty to use working-directory."
+        required: false
+        type: string
+        default: ""
+      lockfile-path:
+        description: "Lockfile for the npm cache key. Leave empty to use `<install-directory>/package-lock.json`."
+        required: false
+        type: string
+        default: ""
+      npm-workspace:
+        description: "Optional npm workspace name. When set, scripts run as `npm run <script> --workspace=<name>`."
+        required: false
+        type: string
+        default: ""
       node-version:
         description: "Node.js version to use."
         required: false
         type: string
         default: "24.x"
       typecheck:
-        description: "Run `tsc --noEmit`."
+        description: "Run typecheck via workspace, `npm run typecheck`, or `npx tsc --noEmit` fallback when npm-workspace is empty."
         required: false
         type: boolean
         default: true
@@ -26,6 +42,11 @@ on:
         required: false
         type: boolean
         default: true
+      format-check:
+        description: "Run `npm run format:check` (typically from the monorepo root)."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,9 +55,8 @@ jobs:
   check:
     name: typecheck, lint
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
+    env:
+      NPM_WORKSPACE: ${{ inputs.npm-workspace }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -46,15 +66,34 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+          cache-dependency-path: ${{ inputs.lockfile-path != '' && inputs.lockfile-path || (inputs.install-directory != '' && inputs.install-directory || inputs.working-directory) }}/package-lock.json
 
       - name: Install
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
         run: npm ci
+
+      - name: Format check
+        if: inputs.format-check
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: npm run format:check
 
       - name: Typecheck
         if: inputs.typecheck
-        run: npx tsc --noEmit
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: |
+          if [ -n "$NPM_WORKSPACE" ]; then
+            npm run typecheck --workspace="$NPM_WORKSPACE"
+          else
+            cd "${{ inputs.working-directory }}"
+            npm run typecheck 2>/dev/null || npx tsc --noEmit
+          fi
 
       - name: Lint
         if: inputs.lint
-        run: npm run lint
+        working-directory: ${{ inputs.install-directory != '' && inputs.install-directory || inputs.working-directory }}
+        run: |
+          if [ -n "$NPM_WORKSPACE" ]; then
+            npm run lint --workspace="$NPM_WORKSPACE"
+          else
+            npm run lint
+          fi
